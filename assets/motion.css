@@ -1,0 +1,123 @@
+/* motion.css (award-level-websites): the CSS half of motion.js. Load after base.css.
+   Hiding only happens under html.js + prefers-reduced-motion: no-preference, with a 2.5s CSS failsafe if the
+   script never starts; reduced motion and the motion toggle (html.motion-paused) unpin and show everything.
+   Scroll-linked --p comes from native scroll timelines where supported; motion.js writes it otherwise. */
+
+[data-marquee] { display: flex; flex-wrap: wrap; gap: var(--marquee-gap, var(--space-l)); align-items: center; }
+[data-marquee].is-ready { flex-wrap: nowrap; overflow: hidden; gap: 0; mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.marquee__track { display: flex; flex: none; width: max-content; animation: awl-marquee var(--marquee-dur, 40s) linear infinite; }
+.marquee__group > * { flex: none; white-space: nowrap; }
+.marquee__group { display: flex; flex: none; align-items: center; gap: var(--marquee-gap, var(--space-l)); padding-right: var(--marquee-gap, var(--space-l)); }
+[data-marquee]:hover .marquee__track, [data-marquee]:focus-within .marquee__track, .motion-paused .marquee__track { animation-play-state: paused; }
+@keyframes awl-marquee { to { transform: translateX(calc(-1 * var(--marquee-shift, 50%))); } }
+.sw { display: inline-block; overflow: clip; vertical-align: top; padding-block: 0.1em; margin-block: -0.1em; }
+.si { display: inline-block; }
+[data-count-to] { display: inline-block; }
+.pan__track { display: flex; gap: var(--space-m); overflow-x: auto; scroll-snap-type: x mandatory; padding-block: var(--space-s); }
+.pan__track > * { flex: 0 0 min(80vw, 26rem); scroll-snap-align: start; }
+[data-parallax] { transform: translate3d(0, calc((0.5 - var(--p, 0.5)) * var(--parallax, 0.15) * 40vh), 0); }
+
+/* fit: one line that fills its box (wood type). Without JS the line wraps at the estimate. With JS it is measured
+   once the real face has loaded, then held on one line (.is-fit) or wrapped at the floor (.fit-wrap); before that,
+   a line with a baked --fit may wrap (so a floor-sized line never shifts) and an unbaked one holds one line. --fit = font-size as % of the line (bake the measured value into the markup for
+   a shift-free first paint), --fit-min is the readable floor (below it the line wraps), --fit-max the ceiling.
+   Zoom: the floor is in rem, so whenever a fitted line is small enough to need enlarging it sits on the floor and
+   grows with zoom; above the floor it is display-size type that keeps its on-screen size. */
+[data-fit] {
+  display: block; line-height: var(--fit-leading, 0.9);
+  font-size: max(var(--fit-min, 1.5rem), min(calc(var(--fit, 9) * 1cqi), var(--fit-max, 100vw)));
+}
+html.js [data-fit] { font-size: max(var(--fit-min, 1.5rem), min(var(--fit-px, calc(var(--fit, 9) * 1cqi)), var(--fit-max, 100vw))); }
+html.js [data-fit].is-fit, html.js [data-fit]:not([style*="--fit"]):not(.fit-wrap) { white-space: nowrap; }
+[data-fit].fit-wrap { text-wrap: balance; }
+
+/* colour drift: each section keeps its own ground (site.css or data-drift="#hex") until motion.js is drifting */
+:where(html.js [data-drift][style*="--drift-ground"]) {
+  background-color: var(--drift-ground); color: var(--drift-ground-ink, inherit);
+  --c-muted: color-mix(in oklab, var(--drift-ground-ink, var(--c-ink)) 72%, var(--drift-ground));
+}
+html.drift-on [data-drift] { background-color: transparent !important; color: inherit; }
+html.has-drift body { background-color: var(--drift-bg); color: var(--drift-ink); --c-muted: color-mix(in oklab, var(--drift-ink) 72%, var(--drift-bg)); }
+
+@media (prefers-reduced-motion: no-preference) {
+  html.js [data-reveal] {
+    transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out),
+      filter var(--dur-3) var(--ease-out), clip-path var(--dur-3) var(--ease-in-out);
+    transition-delay: calc(var(--delay, 0ms) + var(--i, 0) * var(--stagger));
+  }
+  html.js [data-reveal]:not(.is-in) { opacity: 0; }
+  html.js [data-reveal="up"]:not(.is-in) { transform: translateY(var(--reveal-distance)); }
+  html.js [data-reveal="scale"]:not(.is-in) { transform: scale(0.95); }
+  html.js [data-reveal="blur"]:not(.is-in) { filter: blur(var(--reveal-blur)); }
+  /* clip reveals name the way the edge travels: clip-right is revealed left to right ("wipes in from the left").
+     Shapes need an explicit end state: clip-path never animates to or from `none`. */
+  html.js :is([data-reveal^="clip"], [data-reveal="letterbox"]) { clip-path: inset(0); }
+  html.js :is([data-reveal^="clip"], [data-reveal="letterbox"], [data-reveal="iris"]):not(.is-in) { opacity: 1; }
+  html.js :is([data-reveal="clip"], [data-reveal="clip-down"]):not(.is-in) { clip-path: inset(0 0 100% 0); }
+  html.js [data-reveal="clip-up"]:not(.is-in) { clip-path: inset(100% 0 0 0); }
+  html.js [data-reveal="clip-right"]:not(.is-in) { clip-path: inset(0 100% 0 0); }
+  html.js [data-reveal="clip-left"]:not(.is-in) { clip-path: inset(0 0 0 100%); }
+  html.js [data-reveal="letterbox"]:not(.is-in) { clip-path: inset(50% 0 50% 0); }
+  html.js [data-reveal="iris"] { clip-path: circle(75% at 50% 50%); }
+  html.js [data-reveal="iris"]:not(.is-in) { clip-path: circle(0% at 50% 50%); }
+  html.js [data-wipe] { clip-path: inset(0); transition: clip-path calc(var(--dur-3) * 1.2) var(--ease-in-out); transition-delay: var(--delay, 0ms); }
+  html.js [data-wipe="up"]:not(.is-in) { clip-path: inset(100% 0 0 0); }
+  html.js [data-wipe="down"]:not(.is-in) { clip-path: inset(0 0 100% 0); }
+  html.js [data-wipe="left"]:not(.is-in) { clip-path: inset(0 0 0 100%); }
+  html.js [data-wipe="right"]:not(.is-in) { clip-path: inset(0 100% 0 0); }
+  html.js [data-wipe="iris"] { clip-path: circle(75% at 50% 50%); }
+  html.js [data-wipe="iris"]:not(.is-in) { clip-path: circle(0% at 50% 50%); }
+  html.js [data-split]:not(.is-in) .si { transform: translateY(110%); }
+  html.js [data-split] .si { transition: transform var(--dur-3) var(--ease-out); transition-delay: calc(var(--i, 0) * var(--stagger)); }
+  /* failsafe: if motion.js never starts, show everything after 2.5s */
+  html.js:not(.motion-ready) :is([data-reveal], [data-wipe]):not(.is-in) { animation: awl-show 0s linear 2.5s forwards; }
+  .motion-paused :is([data-reveal], [data-wipe], .si) { transition: none; }
+
+  /* pinned stages: only with room (default 700x600; data-pin-min="WxH" overrides via .pin-on / .pin-off).
+     Without room, JS, motion or when paused, the stage is a normal section with every cue visible in order. */
+  @media (min-width: 700px) and (min-height: 600px) {
+    html.js:not(.motion-paused) [data-pin]:not(.pin-off) { height: calc((var(--span, 2) + 1) * 100svh); }
+    html.js:not(.motion-paused) [data-pin]:not(.pin-off) > :first-child { position: sticky; top: 0; height: 100svh; overflow: clip; }
+    html.js.motion-ready:not(.motion-paused) [data-pin]:not(.pin-off) .pin__cues { display: grid; }
+    html.js.motion-ready:not(.motion-paused) [data-pin]:not(.pin-off) .pin__cues > * { grid-area: 1 / 1; }
+    html.js.motion-ready:not(.motion-paused) [data-pin]:not(.pin-off) [data-cue] {
+      --in: clamp(0, (var(--p, 0) - var(--a, 0)) / var(--cue-fade, 0.06), 1);
+      --out: clamp(0, (var(--b, 2) - var(--p, 0)) / var(--cue-fade, 0.06), 1);
+      opacity: min(var(--in), var(--out)); transform: translateY(calc((1 - var(--in)) * 1.5rem));
+    }
+  }
+  html.js:not(.motion-paused) [data-pin].pin-on { height: calc((var(--span, 2) + 1) * 100svh); }
+  html.js:not(.motion-paused) [data-pin].pin-on > :first-child { position: sticky; top: 0; height: 100svh; overflow: clip; }
+  html.js.motion-ready:not(.motion-paused) [data-pin].pin-on .pin__cues { display: grid; }
+  html.js.motion-ready:not(.motion-paused) [data-pin].pin-on .pin__cues > * { grid-area: 1 / 1; }
+  html.js.motion-ready:not(.motion-paused) [data-pin].pin-on [data-cue] {
+    --in: clamp(0, (var(--p, 0) - var(--a, 0)) / var(--cue-fade, 0.06), 1);
+    --out: clamp(0, (var(--b, 2) - var(--p, 0)) / var(--cue-fade, 0.06), 1);
+    opacity: min(var(--in), var(--out)); transform: translateY(calc((1 - var(--in)) * 1.5rem));
+  }
+  html.js:not(.motion-paused) [data-pan].is-ready { height: calc(100svh + var(--pan-travel, 0px)); }
+  html.js:not(.motion-paused) [data-pan].is-ready > :first-child { position: sticky; top: 0; height: 100svh; overflow: clip; display: flex; flex-direction: column; justify-content: center; }
+  html.js:not(.motion-paused) [data-pan].is-ready .pan__track { overflow: visible; width: max-content; scroll-snap-type: none; transform: translateX(calc(var(--p, 0) * -1 * var(--pan-travel, 0px))); }
+  @keyframes awl-show { to { opacity: 1; transform: none; filter: none; clip-path: none; } }
+
+  @supports (animation-timeline: view()) { /* native scroll-linked --p; motion.js only falls back */
+    [data-scrub], [data-parallax] { animation: awl-p linear both; animation-timeline: view(); }
+    /* data-scrub-range="55% 45%" (motion.js copies it to --scrub-inset): the timeline's viewport shrinks to a line
+       55% down the screen, so --p runs 0 to 1 while the element passes under that line ("hold at a line") */
+    [data-scrub][data-scrub-range] { animation-timeline: view(block var(--scrub-inset, auto)); }
+    [data-pin], [data-pan] { animation: awl-p linear both; animation-timeline: view(); animation-range: contain 0% contain 100%; }
+    [data-progress] { animation: awl-p linear both; animation-timeline: scroll(root); }
+    .motion-paused :is([data-scrub], [data-parallax], [data-progress], [data-pin], [data-pan]) { animation: none; }
+  }
+}
+@keyframes awl-p { from { --p: 0; } to { --p: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track { animation: none; }
+  [data-parallax] { transform: none; }
+}
+
+@media print {
+  [data-progress], [data-motion-toggle], [data-marquee] { display: none !important; }
+  :is([data-reveal], [data-wipe], .si, [data-cue]) { opacity: 1 !important; transform: none !important; clip-path: none !important; filter: none !important; }
+}
